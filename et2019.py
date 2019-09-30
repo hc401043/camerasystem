@@ -7,14 +7,23 @@ import time
 import sys
 import math
 import os
+import copy
+
 from bluetooth import Bluetooth
 from svpanel import SV_Panel
 from setting import Setting
 from ai.ainumber import AiNumber
+
+from imageContrast import ImageContrast
+from hueImageExtraction import HueImageExtraction
+from contourImageExtraction import ContourImageExtraction
+from subtractImageExtraction import SubtractImageExtraction
+
+
 class ET2019Main:
     def __init__(self):
  #       self.maskpt =  [[0,0], [0,720], [1280, 720], [1280,0]]
-        self.debug = False
+        self.debug = True
         ## デバッグ用ファイル名設定
        # self.input_img_fname = "L2019/Hno_block.jpg"
        # self.next_input_img_fname = "L2019/Hnum6.jpg"
@@ -78,6 +87,7 @@ class ET2019Main:
         self.ainum = AiNumber()
         self.ainum.course = self.svpanel.setting.course
         self.isconnect=False
+        self.finish_process=False
 
     # マウスイベント時に処理を行う
     def mouse_event(self,event, x, y, flags, param):
@@ -125,13 +135,26 @@ class ET2019Main:
                 self.pickup_mode="none"
     def finish_carib(self):
         fname = "base_img.jpeg"
-        if self.bln and os.path.exists(fname):
+        if self.bln.get() and os.path.exists(fname):
             print("＊＊＊保存ベース画像を使用します＊＊＊")
             self.base_img = cv2.imread(fname)
         else:
             self.base_img = self.backup_img.copy()
             cv2.imwrite(fname, self.base_img)
+
+        self.cross_rects = copy.deepcopy(self.contour.viewrects)
+
+        #self.finish_process = True
+
+        #self.subtract = SubtractImageExtraction(self.svpanel,self.contrastImage)
+        self.subtract.setBaseImage(self.contrastImage.getResultRgbImage())
+        #self.segment = HueImageExtraction(self.svpanel,self.subtract)
+        #self.contour = ContourImageExtraction(self.svpanel,self.segment)
+        self.segment.imgprocess = self.subtract
+        #self.finish_process = False
+
         self.input_img_fname = self.next_input_img_fname
+
         self.carib = False
         self.bt.debug_str = ""
         self.start_bt_thread()
@@ -154,12 +177,11 @@ class ET2019Main:
        # return (xmn2 <= xmx1 <= xmx2 and ymx2 <= ymx1 <=ymn2) or (xmn2 <= xmn1 <= xmx2 and ymx2 <= ymn1 <=ymn2)
         return max(r1[0],r2[0])<=min(r1[0]+r1[2],r2[0]+r2[2]) and max(r1[1],r2[1])<=min(r1[1]+r1[3],r2[1]+r2[3])
     def point_in_poly(self, pt, polypt):
-        """
-        polypt = []
-        for center_pt,rect, in rects:
-            polypt.append(center_pt)
-        print(pt,polypt)
-        """
+        if len(pt)<1:
+            return False
+        if len(polypt)<3:
+            return False
+
         v1 = polypt[0][0]-pt[0], polypt[0][1]-pt[1]
         v2 = polypt[1][0]-pt[0], polypt[1][1]-pt[1]
         v3 = polypt[3][0]-pt[0], polypt[3][1]-pt[1]
@@ -191,7 +213,7 @@ class ET2019Main:
         while True:
             if not self.debug:
                 fname = "base_img.jpeg"
-                if self.carib and self.bln and os.path.exists(fname):
+                if self.carib and self.bln.get() and os.path.exists(fname):
                     self.cap_img = cv2.imread(fname)
                 else:
                     ret, self.cap_img = self.cap.read()
@@ -205,6 +227,11 @@ class ET2019Main:
 
         color_str = ("blue","green","red","yellow","black")
         
+        self.contrastImage = ImageContrast(self.svpanel)
+        self.subtract = SubtractImageExtraction(self.svpanel,self.contrastImage)
+        self.segment = HueImageExtraction(self.svpanel,self.contrastImage)
+        self.contour = ContourImageExtraction(self.svpanel,self.segment)
+
 
         while True: 
             if self.old_img is None: continue
@@ -212,13 +239,8 @@ class ET2019Main:
             h,w,_ = self.old_img.shape
             self.org_frame = self.old_img.copy()
 
-           # self.org_frame = cv2.resize(self.org_frame,(1279,719))
-           # self.org_frame = cv2.GaussianBlur(self.org_frame,(5,5),5.0)
-           # self.org_frame = cv2.resize(self.org_frame,(1280,720))
             self.ainum.area = self.svpanel.setting.nummaskpt
             aitmp = self.org_frame[  self.ainum.area[0][1]:self.ainum.area[1][1], self.ainum.area[0][0]:self.ainum.area[1][0]]
-           # self.ainum.setFrame(aitmp)
-           # self.ainum.startThread(aitmp)
         
             self.ainum.makeAiFrame(aitmp)
             #self.ainum.showAiFrame()
@@ -236,149 +258,55 @@ class ET2019Main:
             self.backup_img = self.org_frame.copy()
 
             if not self.carib:
-                self.org_frame = self.createObjectMask(self.org_frame)
+                #self.org_frame = self.createObjectMask(self.org_frame)
                 self.block_detection=True
   
-            size = 720,1280,3 #720
-
-            # クリップマスクの作成
-            back_mask_img = np.zeros(size, dtype=np.uint8)
-            contours = np.array( self.svpanel.setting.maskpt )
-            cv2.fillPoly(back_mask_img, pts =[contours], color=(255,255,255)) # クリップ領域内部が255
-            back_not_mask_img = cv2.bitwise_not(back_mask_img) #クリップ領域内部が0
-            #cv2.imshow("back mask", back_mask_img)
+            if self.finish_process:
+                continue
+            self.contrastImage.setInputImage(self.org_frame)
+            #self.contrastImage.start()
+            #back_mask_img = self.contrastImage.getClipMaskImage()
 
 
-            self.org_frame[back_mask_img==0] = [0]
+            self.segment.setInputImage(self.org_frame)
+            #self.subtract.setBaseImage(self.org_frame)
+            #self.subtract.start()
+            #self.segment.start()
+            self.contour.start()
+            #masks = self.segment.masks
 
-            hsvimg = cv2.cvtColor(self.org_frame, cv2.COLOR_BGR2HSV)
+            self.hsvchannel = self.contrastImage.getResultHsvImage()
+
+            if self.contrastImage.resultImage is not None:
+                ui_frame = self.contrastImage.resultImage.copy()
             
-            self.hsvchannel = cv2.split(hsvimg)
+                cv2.rectangle(ui_frame,tuple(self.ainum.area[0]), tuple(self.ainum.area[1]), (255,0,0) , 1 )
 
+                ui_frame = cv2.resize(ui_frame,(int(ui_frame.shape[1]/2),int(ui_frame.shape[0]/2)))
+                for pt in self.svpanel.setting.maskpt:
+                    cv2.circle(ui_frame, center =(int(pt[0]/2),int(pt[1]/2)), radius = 6 , color = (0,0,255), thickness=2)
+                for pt in self.svpanel.setting.nummaskpt:
+                    cv2.circle(ui_frame, center =(int(pt[0]/2),int(pt[1]/2)), radius = 6 , color = (255,0,0), thickness=2)
 
-            self.hsvchannel[1] = cv2.LUT(self.hsvchannel[1], self.svpanel.SLUT)
-            self.hsvchannel[2] = cv2.LUT(self.hsvchannel[2], self.svpanel.VLUT)
+                cv2.imshow("UI image", ui_frame)
+                cv2.setMouseCallback("UI image", self.mouse_event)
+
             """
-            self.hsvchannel[1] = cv2.resize(self.hsvchannel[1],(1279,719))
-            self.hsvchannel[1] = cv2.GaussianBlur(self.hsvchannel[1],(5,5),5.0)
-            self.hsvchannel[1] = cv2.resize(self.hsvchannel[1],(1280,720))
+            self.imshow_scale("g_mask", self.segment.g_mask,0.25)
+            self.imshow_scale("r_mask", self.segment.r_mask,0.25)
+            self.imshow_scale("b_mask", self.segment.b_mask,0.25)
+            self.imshow_scale("y_mask", self.segment.y_mask,0.25)
+            self.imshow_scale("bk_mask", self.segment.bk_mask,0.25)
             """
-            self.org_frame = cv2.merge((self.hsvchannel[0],self.hsvchannel[1] ,self.hsvchannel[2])  )
-            self.org_frame = cv2.cvtColor(self.org_frame, cv2.COLOR_HSV2BGR)
-
-            ui_frame = self.org_frame.copy()
-            cv2.rectangle(ui_frame,tuple(self.ainum.area[0]), tuple(self.ainum.area[1]), (255,0,0) , 1 )
-
-            ui_frame = cv2.resize(ui_frame,(int(ui_frame.shape[1]/2),int(ui_frame.shape[0]/2)))
-            for pt in self.svpanel.setting.maskpt:
-                cv2.circle(ui_frame, center =(int(pt[0]/2),int(pt[1]/2)), radius = 6 , color = (0,0,255), thickness=2)
-            for pt in self.svpanel.setting.nummaskpt:
-                cv2.circle(ui_frame, center =(int(pt[0]/2),int(pt[1]/2)), radius = 6 , color = (255,0,0), thickness=2)
-
-            cv2.imshow("UI image", ui_frame)
-            cv2.setMouseCallback("UI image", self.mouse_event)
-
-
-        #	cv2.imshow("h image", hsvchannel[0])
-            #cv2.imshow("s image", self.hsvchannel[1])
-            #cv2.imshow("v image", self.hsvchannel[2])
-            
-        #    ret, vmask = cv2.threshold(self.hsvchannel[2],160,255,cv2.THRESH_BINARY)
-        #	vmask = cv2.adaptiveThreshold(hsvchannel[2],255,cv2.ADAPTIVE_THRESH_MEAN_C,\
-        #           cv2.THRESH_BINARY,513,2)
-
-
-        #	cv2.imshow("v mask", vmask)
-
-        #	ret, chan1mask = cv2.threshold(hsvchannel[0],30,255,cv2.THRESH_BINARY)
-        #	ret, chan1mask2 = cv2.threshold(hsvchannel[0],90,255,cv2.THRESH_BINARY_INV)	
-        #	mask = cv2.bitwise_and(chan1mask,chan1mask2)
-        #	mask = cv2.bitwise_and(mask,vmask)
-            g_mask = np.zeros(self.hsvchannel[0].shape, dtype=np.uint8)
-            st,ed = self.svpanel.getGreenRange()
-            g_mask[( (self.hsvchannel[0] >st/2 ) &  (self.hsvchannel[0] < ed/2) )& ((self.hsvchannel[1] > 40) & (self.hsvchannel[2] > 64))] = 255
-            # green だけ、黒線のエッジが影響するのでローパスフィルタで処理
-            g_mask = cv2.blur(g_mask,(3,3))
-            _, g_mask = cv2.threshold(g_mask,200,255,cv2.THRESH_BINARY)
-
-
-            r_mask = np.zeros(self.hsvchannel[0].shape, dtype=np.uint8)
-            st,ed = self.svpanel.getRedRange()
-            if(st<ed):
-                r_mask[( (self.hsvchannel[0] >st/2 ) &  (self.hsvchannel[0] < ed/2) )& ((self.hsvchannel[1] > 40) & (self.hsvchannel[2] > 64))] = 255
-            else:
-                r_mask[(((self.hsvchannel[0] >= 0) &  (self.hsvchannel[0] < ed/2)) |\
-                ((self.hsvchannel[0] >st/2 ) &  (self.hsvchannel[0] <= 180))) &  ((self.hsvchannel[1] > 40) & (self.hsvchannel[2] > 64))] = 255
-
-            b_mask = np.zeros(self.hsvchannel[0].shape, dtype=np.uint8)
-            st,ed = self.svpanel.getBlueRange()
-            b_mask[((self.hsvchannel[0] >st/2) &  (self.hsvchannel[0] < ed/2)) &  ((self.hsvchannel[1] > 40) & (self.hsvchannel[2] > 64) )] = 255
-
-            y_mask = np.zeros(self.hsvchannel[0].shape, dtype=np.uint8)
-            st,ed = self.svpanel.getYellowRange()
-            y_mask[((self.hsvchannel[0] >st/2 ) &  (self.hsvchannel[0] < ed/2)) &  ((self.hsvchannel[1] > 40) & (self.hsvchannel[2] > 64) )] = 255
-
-            bk_mask = np.zeros(self.hsvchannel[0].shape, dtype=np.uint8) 
-
-            #bk_mask = np.full(self.hsvchannel[0].shape, 255, dtype=np.uint8) 
-            bv,bs = self.svpanel.getBlackVS()
-            # print(bv,bs)
-            bk_mask[ (self.hsvchannel[1] <= bs) & (self.hsvchannel[2] <= bv)] = 255
-            one, _ , _ = cv2.split(back_mask_img)
-
-            kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(3,3))
-            itr = 4
-            g_mask = cv2.dilate(g_mask,kernel,iterations = itr+3)
-            g_mask = cv2.erode(g_mask,kernel,iterations = itr+3)
-            b_mask = cv2.dilate(b_mask,kernel,iterations = itr)
-            b_mask = cv2.erode(b_mask,kernel,iterations = itr)
-            r_mask = cv2.dilate(r_mask,kernel,iterations = itr)
-            r_mask = cv2.erode(r_mask,kernel,iterations = itr)
-            bk_mask = cv2.dilate(bk_mask,kernel,iterations = itr)
-            bk_mask = cv2.erode(bk_mask,kernel,iterations = itr)
-            self.imshow_scale("g_mask", g_mask,0.25)
-            self.imshow_scale("r_mask", r_mask,0.25)
-            self.imshow_scale("b_mask", b_mask,0.25)
-            self.imshow_scale("y_mask", y_mask,0.25)
-            self.imshow_scale("bk_mask", bk_mask,0.25)
-
-            r_mask = cv2.bitwise_and(r_mask,one)
-            g_mask = cv2.bitwise_and(g_mask,one)
-            b_mask = cv2.bitwise_and(b_mask,one)
-            y_mask = cv2.bitwise_and(y_mask,one)
-            bk_mask = cv2.bitwise_and(bk_mask,one)
-            #cv2.imshow("g_mask2", g_mask)  
-
-
-            mask = cv2.bitwise_or(b_mask,g_mask)
-            mask = cv2.bitwise_or(mask,r_mask)
-            mask = cv2.bitwise_or(mask,y_mask)
-            mask = cv2.bitwise_or(mask,bk_mask)
-
-
-            #cv2.imshow("bk_mask", bk_mask)
-            
-            masks = (r_mask,g_mask,b_mask,y_mask,bk_mask)
-            #cv2.imshow("bkmask",bk_mask)
-
-            h_s = self.hsvchannel[1]*(mask/255.0) # mask以外のS値を0に
-        #	h_s = hsvchannel[1]*(hsvchannel[2]/255)
-            h_s = h_s.astype('uint8')
-        #	cont = makeContrastLUT(1.8)
-        #	h_s = cv2.LUT(h_s, cont).astype('uint8')
-            ret, h_s_bin = cv2.threshold(h_s,20,255,cv2.THRESH_BINARY)
-            
-            newimg = cv2.merge((self.hsvchannel[0], h_s, self.hsvchannel[2]))
-            drawimg = cv2.cvtColor(newimg, cv2.COLOR_HSV2BGR)
-           # cv2.imshow("drawimg", self.hsvchannel[1])
-            
             draw_line_col = ((0,0,255),(0,255,0),(255,0,0),(0,255,255),(100,100,100))
             if not self.block_detection:
                 self.nodes = []  # キャリブレーション中だけ更新されるので初期化
-                rects = [] #交点サークルの保存用
+               # self.contour.viewrects = [] #交点サークルの保存
+               # self.cross_rects = copy.deepcopy(self.contour.viewrects)
             else:
+                self.contour.blackdetect = True
                 # 交点サークルの描画
-                for pt,drawrect,color_idx in rects:
+                for pt,drawrect,color_idx in self.cross_rects:
                     cv2.rectangle(self.backup_img,(drawrect[0],drawrect[1]),(drawrect[0]+drawrect[2],drawrect[1]+drawrect[3]),draw_line_col[color_idx],2)
             cnt = 0
 
@@ -391,6 +319,8 @@ class ET2019Main:
                 select= 0
             else:
                 select =1
+
+            """
             # maskの順番 r g b y bk
             for i, cur_mask in enumerate(masks): 
                 if i!=4 : #黒以外
@@ -408,14 +338,6 @@ class ET2019Main:
                     rectarea = rect[2]*rect[3]
 
                     #大きさ不適合
-                    """
-                    if rect[1]<200 and (rectarea<400 or rectarea>4000) : # 画面上方の場合
-                        continue
-                    if 200<=rect[1]<400 and (rectarea<1000 or rectarea>12000) : # 画面中段の場合
-                        continue
-                    if rect[1]>=400 and (rectarea<2000 or rectarea>22000) : # 画面下方の場合
-                        continue
-                    """
                     btm = rect[1]+rect[3]
                     if btm<220 and (rectarea<380 or rectarea>4000) : # 画面上方の場合
                         continue
@@ -472,18 +394,50 @@ class ET2019Main:
                                     if self.point_in_poly((cx,cy), block_circle_rect):
                                         #print("ブロックサークル", no,block_circle_rect)
                                         self.block[no+15].append((i,rect))
+            """
 
+            #抽出結果描画
+            for _,viewrect,col in self.contour.viewrects:
+                cv2.rectangle(self.backup_img,(viewrect[0],viewrect[1]),(viewrect[0]+viewrect[2],viewrect[1]+viewrect[3]),draw_line_col[col],2)
 
-                #交点サークルに番号付与
-                if self.svpanel.setting.course=='L':
-                    select= 0
-                else:
-                    select =1
-                block_start = self.block_circle_start_num[select]
-                if i!=4 and not self.block_detection:
+            #交点サークルに番号付与
+            if self.svpanel.setting.course=='L':
+                select= 0
+            else:
+                select =1
+        
+            block_start = self.block_circle_start_num[select]
+            for col in range(5):
+                c_nodes = [x[1] for x in self.contour.regions if x[0]==col]
+                c_nodes_rect = [x[2] for x in self.contour.regions  if x[0]==col]
+                if not self.block_detection and col!=4:
                     self.decision_circle_node(block_start[cnt], c_nodes,c_nodes_rect,self.svpanel.setting.maskpt)
                   #  print("番号付きノード",self.nodes)
                     cnt = cnt+1
+                #⃣ブロック識別
+                if self.block_detection:
+                    block_rects = [[x[0],x[1]] for x in self.contour.viewrects if x[2]==col]
+                    for center,rect in block_rects:
+                        cross=False
+                        block_rgn=[]
+                        for node_no,node_pt,node_rect in self.nodes:
+                            #print ("color",i,node_no,rect, "node_rect",node_rect,self.inset_rect(rect, node_rect))
+                            if self.inset_rect(rect, node_rect) and rect[1]<=node_rect[1]:
+                                #print("交点ブロック置き場", node_no+1,node_pt,rect,node_rect,color_str[i])
+                                self.block[node_no].append((col,rect)) # 色を追加
+                                cross=True
+                        # ブロックサークル
+                        if not cross:
+                            #print(rect,color_str[i])
+                            for no in range(1,9):
+                                if col==self.bingocircle_col[select][no-1] or col==4:   # ブロックとビンゴサークルが同色か黒のみ存在可能
+                                    block_circle_rect = self.getBlockCircleRects(no,self.nodes)
+                                    # print(("point in poly ",self.point_in_poly((cx,cy), block_circle_rect),(cx,cy),block_circle_rect)) 
+                                    #print(block_circle_rect)
+                                    if self.point_in_poly(center, block_circle_rect):
+                                        #print("ブロックサークル", no,block_circle_rect)
+                                        self.block[no+15].append((col,rect))
+                
 
             #print ("before ",self.block)
             # 誤検知ブロックの整理
@@ -491,8 +445,6 @@ class ET2019Main:
                 self.crrectBlockRgn(self.block,self.nodes)
                 #print("after ",self.block)
             
-
-
 
             self.bt.reset_blockinfo()
             for node_no,block in enumerate(self.block):

@@ -145,7 +145,7 @@ class AiNumber:
         dst = cv2.cvtColor(src, cv2.COLOR_BGR2GRAY)
 
         #数値の閾値処理
-        ret, dst = cv2.threshold(dst, 110, 255, cv2.THRESH_BINARY)  #170
+        ret, dst = cv2.threshold(dst, 130, 255, cv2.THRESH_BINARY)  #170 大きくすると拾いやすい
         #モルフォルジ処理
         #kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(3,3))
         #dst = cv2.erode(dst,kernel,iterations = 18)

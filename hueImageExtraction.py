@@ -17,7 +17,7 @@ class HueImageExtraction(ImageExtraction):
 
         self.g_mask = np.zeros(self.hsvchannel[0].shape, dtype=np.uint8)
         st,ed = self.svpanel.getGreenRange()
-        self.g_mask[( (self.hsvchannel[0] >st/2 ) &  (self.hsvchannel[0] < ed/2) )& ((self.hsvchannel[1] > 40) & (self.hsvchannel[2] > 64))] = 255
+        self.g_mask[( (self.hsvchannel[0] >st/2 ) &  (self.hsvchannel[0] < ed/2) )& ((self.hsvchannel[1] > 30) & (self.hsvchannel[2] > 40))] = 255
         # green だけ、黒線のエッジが影響するのでローパスフィルタで処理
         self.g_mask = cv2.blur(self.g_mask,(3,3))
         _, self.g_mask = cv2.threshold(self.g_mask,200,255,cv2.THRESH_BINARY)

@@ -19,11 +19,13 @@ from hueImageExtraction import HueImageExtraction
 from contourImageExtraction import ContourImageExtraction
 from subtractImageExtraction import SubtractImageExtraction
 
+from capture import Capture
+
 
 class ET2019Main:
     def __init__(self):
  #       self.maskpt =  [[0,0], [0,720], [1280, 720], [1280,0]]
-        self.debug = True
+        self.debug = False
         ## デバッグ用ファイル名設定
        # self.input_img_fname = "L2019/Hno_block.jpg"
        # self.next_input_img_fname = "L2019/Hnum6.jpg"
@@ -32,11 +34,11 @@ class ET2019Main:
 
         self.bt = Bluetooth("COM41",9600)
 
-        self.drag = -1
+        self.drag = -1  
         self.pickup_mode = 'none'
         self.root = tk.Tk()
         self.root.title(u"メインメニュー")
-        self.root.geometry("300x200")
+        self.root.geometry("300x300")
         btn1 = tk.Button(text="映像取得開始",command=self.start_thread)
         btn1.pack()
 
@@ -68,6 +70,10 @@ class ET2019Main:
         self.lbl2 = tk.Label(textvariable = self.lbl2txt)
         self.lbl2.pack()
 
+        self.capture = Capture()
+        capt = tk.Button(text="キャプチャ",command=self.exec_capt)
+        capt.pack() 
+
         try:
             setfile = sys.argv[1]
         except IndexError:
@@ -88,6 +94,10 @@ class ET2019Main:
         self.ainum.course = self.svpanel.setting.course
         self.isconnect=False
         self.finish_process=False
+
+    def exec_capt(self):
+        self.capture.capt(self.cap_img)
+        
 
     # マウスイベント時に処理を行う
     def mouse_event(self,event, x, y, flags, param):

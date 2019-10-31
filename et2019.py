@@ -32,7 +32,7 @@ class ET2019Main:
         self.input_img_fname = "R2019/Hno_block.jpg"
         self.next_input_img_fname = "R2019/num7.jpg"
 
-        self.bt = Bluetooth("COM41",9600)
+        self.bt = Bluetooth("COM40",9600)
 
         self.drag = -1  
         self.pickup_mode = 'none'

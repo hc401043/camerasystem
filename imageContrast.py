@@ -7,7 +7,6 @@ class ImageContrast(ImageProcess):
 
     def start(self):
         self.clipImage()
-        
         self.rgb2hsv()
 
         self.hsvchannel = cv2.split(self.inputImage)
@@ -17,4 +16,7 @@ class ImageContrast(ImageProcess):
 
         self.resultImage = cv2.merge((self.hsvchannel[0],self.hsvchannel[1] ,self.hsvchannel[2])  )
         self.hsv2rgb()
-        
+
+   
+
+

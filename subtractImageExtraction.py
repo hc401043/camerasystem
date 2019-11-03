@@ -12,7 +12,7 @@ class SubtractImageExtraction(ImageExtraction):
         self.imgprocess.start()
         self.resultImage = self.createObjectMask(self.imgprocess.resultImage)
 
-        #cv2.imshow("test1",self.resultImage)
+        #cv2.imshow("test1",self.imgprocess.resultImage)
         #cv2.imshow("test2",self.baseImage)
 
 
@@ -41,7 +41,7 @@ class SubtractImageExtraction(ImageExtraction):
         fgmask_all = cv2.dilate(fgmask_all,kernel,iterations = 1)
         #cv2.imshow("dilate",fgmask_all)
         fgmask_all = cv2.erode(fgmask_all,kernel,iterations = 4)
-        #cv2.imshow("erode",fgmask_all)
+       # cv2.imshow("erode",fgmask_all)
 
         fgmask_all_not = cv2.bitwise_not(fgmask_all)
         fgmask_not_frame = cv2.cvtColor(fgmask_all_not, cv2.COLOR_GRAY2BGR)

@@ -18,6 +18,8 @@ from imageContrast import ImageContrast
 from hueImageExtraction import HueImageExtraction
 from contourImageExtraction import ContourImageExtraction
 from subtractImageExtraction import SubtractImageExtraction
+from origineImage import OrigineImage
+from imageExtractionContrast import ImageExtractionContrast
 
 from capture import Capture
 
@@ -32,7 +34,7 @@ class ET2019Main:
         self.input_img_fname = "R2019/Hno_block.jpg"
         self.next_input_img_fname = "R2019/num7.jpg"
 
-        self.bt = Bluetooth("COM40",9600)
+        self.bt = Bluetooth("COM41",9600)
 
         self.drag = -1  
         self.pickup_mode = 'none'
@@ -157,10 +159,16 @@ class ET2019Main:
         #self.finish_process = True
 
         #self.subtract = SubtractImageExtraction(self.svpanel,self.contrastImage)
-        self.subtract.setBaseImage(self.contrastImage.getResultRgbImage())
+        
+        #self.subtract.setBaseImage(self.contrastImage.getResultRgbImage())
+        self.subtract.setBaseImage(self.origineImage.getResultRgbImage())
+   
         #self.segment = HueImageExtraction(self.svpanel,self.subtract)
         #self.contour = ContourImageExtraction(self.svpanel,self.segment)
-        self.segment.imgprocess = self.subtract
+        #self.segment.imgprocess = self.subtract #org
+        self.contrastImage.imgprocess = self.subtract
+        #self.subtract.setInputImage(self.org_frame)
+
         #self.finish_process = False
 
         self.input_img_fname = self.next_input_img_fname
@@ -237,8 +245,17 @@ class ET2019Main:
 
         color_str = ("blue","green","red","yellow","black")
         
+        """
         self.contrastImage = ImageContrast(self.svpanel)
-        self.subtract = SubtractImageExtraction(self.svpanel,self.contrastImage)
+        self.origineImage = OrigineImage(self.svpanel)
+         
+        self.subtract = SubtractImageExtraction(self.svpanel,self.origineImage)
+        self.segment = HueImageExtraction(self.svpanel,self.contrastImage)
+        self.contour = ContourImageExtraction(self.svpanel,self.segment)
+        """
+        self.origineImage = OrigineImage(self.svpanel)
+        self.subtract = SubtractImageExtraction(self.svpanel,self.origineImage)
+        self.contrastImage = ImageExtractionContrast(self.svpanel,self.origineImage)
         self.segment = HueImageExtraction(self.svpanel,self.contrastImage)
         self.contour = ContourImageExtraction(self.svpanel,self.segment)
 
@@ -273,12 +290,21 @@ class ET2019Main:
   
             if self.finish_process:
                 continue
-            self.contrastImage.setInputImage(self.org_frame)
+            # self.contrastImage.setInputImage(self.org_frame) # org
+            self.origineImage.setInputImage(self.org_frame)
+
             #self.contrastImage.start()
             #back_mask_img = self.contrastImage.getClipMaskImage()
 
 
-            self.segment.setInputImage(self.org_frame)
+            #self.segment.setInputImage(self.org_frame) # org
+            """
+            if self.carib:
+                self.contrastImage.setInputImage(self.org_frame)
+            else:
+                self.subtract.setInputImage(self.org_frame)
+            """
+
             #self.subtract.setBaseImage(self.org_frame)
             #self.subtract.start()
             #self.segment.start()
@@ -293,8 +319,17 @@ class ET2019Main:
                 cv2.rectangle(ui_frame,tuple(self.ainum.area[0]), tuple(self.ainum.area[1]), (255,0,0) , 1 )
 
                 ui_frame = cv2.resize(ui_frame,(int(ui_frame.shape[1]/2),int(ui_frame.shape[0]/2)))
+                prev_pt = None
                 for pt in self.svpanel.setting.maskpt:
                     cv2.circle(ui_frame, center =(int(pt[0]/2),int(pt[1]/2)), radius = 6 , color = (0,0,255), thickness=2)
+                    if prev_pt is not None:
+                        cv2.line(ui_frame,((int(prev_pt[0]/2),int(prev_pt[1]/2))),((int(pt[0]/2),int(pt[1]/2))), (0,0,255), 2)
+                    else :
+                        first_pt=pt
+                    prev_pt=pt
+
+                cv2.line(ui_frame,((int(prev_pt[0]/2),int(prev_pt[1]/2))),((int(first_pt[0]/2),int(first_pt[1]/2))), (0,0,255), 2)
+
                 for pt in self.svpanel.setting.nummaskpt:
                     cv2.circle(ui_frame, center =(int(pt[0]/2),int(pt[1]/2)), radius = 6 , color = (255,0,0), thickness=2)
 

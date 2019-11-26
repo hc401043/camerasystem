@@ -41,6 +41,7 @@ class ContourImageExtraction(ImageExtraction):
                 offset=50
                 areaplus=0
                 if self.blackdetect:
+<<<<<<< HEAD
                     areaplus=20000
                 
                 btm = rect[1]+rect[3]
@@ -49,6 +50,15 @@ class ContourImageExtraction(ImageExtraction):
                 if offset+220<=btm<offset+430 and (rectarea<1000 or rectarea>9000+areaplus) : # 画面中段の場合 R 9500   1000
                     continue
                 if btm>=offset+430 and (rectarea<2000 or rectarea>24000+areaplus) : # 画面下方の場合 24000 min 2000
+=======
+                    areaplus=10000
+                btm = rect[1]+rect[3]
+                if btm<offset+220 and (rectarea<350 or rectarea>4000) : # 画面上方の場合
+                    continue
+                if offset+220<=btm<offset+430 and (rectarea<1000 or rectarea>9000+areaplus) : # 画面中段の場合 R 9500 
+                    continue
+                if btm>=offset+430 and (rectarea<2000 or rectarea>24000+areaplus) : # 画面下方の場合 24000
+>>>>>>> 3f31138abf4a771ff420e8e0c8a61562fba2a03d
                     continue
                 
                 #approx = cv2.convexHull(contour)

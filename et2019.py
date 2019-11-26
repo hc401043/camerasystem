@@ -31,8 +31,10 @@ class ET2019Main:
         ## デバッグ用ファイル名設定
        # self.input_img_fname = "L2019/Hno_block.jpg"
        # self.next_input_img_fname = "L2019/Hnum6.jpg"
-        self.input_img_fname = "R2019/Hno_block.jpg"
-        self.next_input_img_fname = "R2019/num7.jpg"
+        #self.input_img_fname = "capture/honbanR/capt7base.jpg"
+        #self.next_input_img_fname = "capture/honbanR/capt13after.jpg"
+        self.input_img_fname = "capture/honbanL/capt2base.jpg"
+        self.next_input_img_fname = "capture/honbanL/capt10after.jpg"
 
         self.bt = Bluetooth("COM41",9600)
 

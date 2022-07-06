@@ -12,7 +12,7 @@ import copy
 from bluetooth import Bluetooth
 from svpanel import SV_Panel
 from setting import Setting
-from ai.ainumber import AiNumber
+#from ai.ainumber import AiNumber
 
 from imageContrast import ImageContrast
 from hueImageExtraction import HueImageExtraction
@@ -94,8 +94,8 @@ class ET2019Main:
 
         self.block_circle_start_num = [[0,10,2,8], # Lコース交点ブロック色別開始番号
                                         [2,8,0,10]] # Rコース
-        self.ainum = AiNumber()
-        self.ainum.course = self.svpanel.setting.course
+        #self.ainum = AiNumber()
+        #self.ainum.course = self.svpanel.setting.course
         self.isconnect=False
         self.finish_process=False
 
